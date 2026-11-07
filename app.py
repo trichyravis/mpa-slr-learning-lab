@@ -1,3 +1,4 @@
+from html import escape
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
@@ -19,13 +20,35 @@ st.set_page_config(page_title="SLR Learning Lab | The Mountain Path Academy", pa
 st.markdown("""<style>
 .stApp {background:#f7f9fc} .block-container {padding-top:2rem;max-width:1450px}
 h1,h2,h3 {color:#142d4e} h1{font-weight:750!important;letter-spacing:-1.3px}
-[data-testid="stSidebar"]{border-right:1px solid #dce5ef;background:#fff}
+[data-testid="stSidebar"] {background:#f1f5f9;border-right:2px solid #b5c6d5;color:#152d49}
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {color:#152d49;font-weight:700}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:#41566b}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:.35rem}
+[data-testid="stSidebar"] [role="radiogroup"] label {
+  background:white;color:#152d49;border:1px solid #8699aa;border-radius:7px;
+  padding:.42rem .6rem;margin:0;align-items:center;min-width:0
+}
+[data-testid="stSidebar"] [role="radiogroup"] label p {color:inherit;white-space:normal;overflow-wrap:anywhere}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#e1edf4}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+  background:#173955;color:white;border-color:#173955;box-shadow:inset 4px 0 #f3cd76
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:white;font-weight:700}
+[data-testid="stSidebar"] label:has(input:focus-visible),
+[data-testid="stSidebar"] :is(button,input,[role="slider"]):focus-visible {
+  outline:3px solid #096888;outline-offset:2px
+}
+[data-testid="stSidebar"] [data-baseweb="select"] > div {background:white;color:#152d49;border-color:#8699aa}
+[data-testid="stSidebar"] [data-baseweb="select"]:has(input:disabled) > div {background:#e4eaf0;color:#41566b;opacity:1}
+[data-testid="stSidebar"] [data-testid="stDownloadButton"] button {background:#173955;color:white;border-color:#173955}
+[data-testid="stSidebar"] [data-testid="stDownloadButton"] button p {color:white}
+[data-testid="stSidebar"] [data-testid="stDownloadButton"] button:hover {background:#245171}
 [data-testid="stMetric"]{background:#fff;border:1px solid #dce5ef;border-top:3px solid #c4a04c;border-radius:12px;padding:15px}
 [data-testid="stMetricValue"]{font-size:1.8rem}
 .hero{padding:27px 32px;background:linear-gradient(120deg,#132b48,#1c5575);border-radius:16px;color:white;margin-bottom:22px}
 .hero h1{color:white!important;font-size:2.5rem!important;margin:4px 0 8px}.hero p{color:#dceaf7;margin:0}
 .eyebrow{font-size:.78rem;letter-spacing:2px;color:#f0d28a;font-weight:700}
-.lesson{background:#eef5fa;border-left:4px solid #176b87;padding:16px 20px;border-radius:0 9px 9px 0;margin:14px 0}
+.result-panel{background:#132f4c;color:white;border-radius:14px;padding:22px 26px;margin:16px 0}.result-panel strong{display:block;color:#ffda88;font-size:clamp(1.3rem,3vw,2rem);margin:6px 0}.result-panel small{color:#d9e9f3}.variance-bar{display:flex;height:15px;background:#dae2eb;border-radius:8px;overflow:hidden;margin:8px 0}.variance-bar span{background:#176b87}.lesson{background:#eef5fa;border-left:4px solid #176b87;padding:16px 20px;border-radius:0 9px 9px 0;margin:14px 0}
 .stButton button,.stDownloadButton button{border-radius:8px}
 @media(max-width:700px){.hero h1{font-size:1.8rem!important}.hero{padding:20px}.block-container{padding:1rem}}
 </style>""",unsafe_allow_html=True)
@@ -190,9 +213,11 @@ if fit.n<30:
     st.caption("Small sample: coefficient uncertainty and diagnostic power deserve particular attention.")
 
 if section=="Overview":
-    st.subheader("The fitted relationship")
-    st.latex(r"\widehat{Y}="+f"{fit.beta[0]:.5g}"+("+" if fit.beta[1]>=0 else "-")+f"{abs(fit.beta[1]):.5g}"+r"X")
-    st.write(f"A one-unit difference in **{xcol}** is associated with **{abs(fit.beta[1]):,.4g} units {direction} fitted {ycol}**. Units: {units}.")
+    sign = "+" if fit.beta[1] >= 0 else "−"
+    st.markdown(f"""<div class="result-panel"><small>Fitted equation</small>
+    <strong>Predicted {escape(str(ycol))} = {fmt(fit.beta[0])} {sign} {fmt(abs(fit.beta[1]))} × {escape(str(xcol))}</strong>
+    A one-unit increase in {escape(str(xcol))} corresponds to {fmt(abs(fit.beta[1]))} units {direction} fitted {escape(str(ycol))}.
+    <br><small>{escape(str(units))}</small></div>""", unsafe_allow_html=True)
     if not fit.x.min()<=0<=fit.x.max():
         st.caption("X=0 is outside the observed range: interpret the intercept cautiously.")
     grid=np.linspace(fit.x.min(),fit.x.max(),160)
@@ -204,7 +229,10 @@ if section=="Overview":
     fig.add_trace(go.Scatter(x=grid,y=pred["Predicted Y"],mode="lines",name="OLS fitted line",line=dict(color="#c49a34",width=3)))
     fig.update_layout(xaxis_title=xcol,yaxis_title=ycol)
     st.plotly_chart(chart_style(fig),use_container_width=True)
-    st.subheader("What can you conclude?")
+    st.subheader("How much variation does the line explain?")
+    share = float(np.clip(fit.r2, 0, 1))
+    st.markdown(f'<div class="variance-bar" aria-hidden="true"><span style="width:{100*share:.4f}%"></span></div>', unsafe_allow_html=True)
+    st.caption(f"Explained by the line  {share:.1%}   ·   Residual variation  {1-share:.1%}")
     st.write(f"The fitted line accounts for **{fit.r2:.2%} of observed Y variation**. The slope test "+
              (f"rejects H₀: β=0 at α={alpha:.2f}." if slope_p<alpha else f"does not reject H₀: β=0 at α={alpha:.2f}."))
     st.info("Statistical significance does not establish causation or practical importance. Inspect assumptions and held-out prediction before drawing a substantive conclusion.")
@@ -228,8 +256,13 @@ elif section=="Data & descriptives":
     st.dataframe(data,hide_index=True,use_container_width=True)
 
 elif section=="Regression & ANOVA":
-    st.subheader("Regression statistics")
-    show_table(pd.DataFrame(metrics.items(),columns=["Statistic","Value"]))
+    st.subheader("What does the slope tell us?")
+    lower, upper = coeff.loc[1, ["CI lower", "CI upper"]]
+    st.markdown(f"**{confidence}% slope interval**  ·  {fmt(lower)} to {fmt(upper)}")
+    decision = "Reject the zero-slope hypothesis" if slope_p < alpha else "Insufficient evidence to reject the zero-slope hypothesis"
+    st.write(f"{decision} at the {alpha:.0%} significance level using {inference} inference.")
+    with st.expander("Model fit and prediction error statistics"):
+        show_table(pd.DataFrame(metrics.items(),columns=["Statistic","Value"]))
     st.subheader(f"Coefficient estimates · {inference} inference · {confidence}% intervals")
     show_table(coeff)
     st.caption("All coefficient tests are two-sided against zero. Classical t tests use n−2 degrees of freedom. HC3/HAC use asymptotic normal z tests; small-sample accuracy is not guaranteed.")
